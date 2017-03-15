@@ -1,0 +1,7 @@
+[package]
+name = "rust_boggle_solver"
+version = "0.1.0"
+authors = ["Joel Pedraza <joel@joelpedraza.com>"]
+
+[dependencies]
+rayon = "0.6.0"
