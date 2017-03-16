@@ -97,9 +97,9 @@ impl RadixBoggleBoard {
 
     pub fn neighbors(&self, i: usize, v: u8) -> RadixNeighborIter {
         RadixNeighborIter {
-            v: self.cells[i][v as usize],
-            i: i,
-            w: self.width
+            value: self.cells[i][v as usize],
+            idx: i,
+            width: self.width
         }
     }
 
