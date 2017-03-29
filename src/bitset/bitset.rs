@@ -28,6 +28,7 @@ use std::cmp::max;
 const TWO_POW_64: u64 = 0x8000000000000000;
 const MAX: u64        = 0xFFFFFFFFFFFFFFFF;
 
+#[derive(Debug, Clone)]
 pub struct BitSet {
     data: Vec<u64>,
     len: usize

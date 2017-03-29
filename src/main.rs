@@ -203,6 +203,122 @@ fn descend_radix(parent: &Trie, board: &RadixBoggleBoard, mut word: &mut Vec<u8>
 
 //==============================================================================
 
+use trie::TrieIterator;
+
+struct BFSNode {
+    pos: usize,
+    ancestors: BitSet,
+}
+
+struct Element<'a> {
+    iter: TrieIterator<'a>,
+    frontier: Vec<BFSNode>
+}
+
+struct DictBasedIterator<'a> {
+    board: &'a RadixBoggleBoard,
+    state: Vec<Element<'a>>,
+    word: Vec<u8>
+}
+
+const DEFAULT_CAPACITY: usize = 32;
+
+impl<'a> DictBasedIterator<'a> {
+    fn new(trie: &'a Trie, board: &'a RadixBoggleBoard) -> DictBasedIterator<'a> {
+        let root = Element {
+            iter: trie.iter(),
+            frontier: Vec::with_capacity(0),
+        };
+
+        let mut state = Vec::with_capacity(DEFAULT_CAPACITY);
+        state.push(root);
+
+        DictBasedIterator {
+            board: board,
+            state: state,
+            word: Vec::with_capacity(DEFAULT_CAPACITY),
+        }
+    }
+}
+
+fn idx_vec_to_string(mut vec: Vec<u8>) -> String {
+    let mut i = 0;
+
+    while i < vec.len() {
+        vec[i] += 'a' as u8;
+        if vec[i] == 'q' as u8 {
+            vec.insert(i+1, 'u' as u8);
+            i += 2;
+        } else {
+            i += 1;
+        }
+
+    }
+    unsafe { String::from_utf8_unchecked(vec) }
+}
+
+impl<'a> Iterator for DictBasedIterator<'a> {
+    type Item = String;
+
+    fn next(&mut self) -> Option<String> {
+        while let Some(mut head) = self.state.pop() {
+            while let Some((ref trie, next_letter)) = head.iter.next() {
+
+                let next_frontier: Vec<BFSNode> = match head.frontier.len() {
+                    0 => self.board.any(next_letter)
+                            .map(|pos| BFSNode{ pos: pos, ancestors: BitSet::new() })
+                            .collect(),
+                    _ => {
+                        let mut v: Vec<BFSNode> = Vec::new();
+                        for bfs_node in head.frontier.iter() {
+                            for pos in self.board.neighbors(bfs_node.pos, next_letter) {
+                                if !bfs_node.ancestors.get(pos) {
+                                    v.push(BFSNode {
+                                        pos: pos,
+                                        ancestors: {
+                                            let mut a = bfs_node.ancestors.clone();
+                                            a.add(bfs_node.pos);
+                                            a
+                                        }
+                                    })
+                                }
+                            }
+                        }
+                        v
+                    }
+                };
+
+                if next_frontier.len() > 0 {
+                    let next_head = Element {
+                        iter: trie.iter(),
+                        frontier: next_frontier
+                    };
+
+                    //println!("frontier cand: {:?}", next_frontier);
+                    self.state.push(head);
+                    self.word.push(next_letter);
+                    
+                    match trie.node_type() {
+                        NodeType::Word(_) => {
+                            let s = idx_vec_to_string(self.word.clone());
+                            self.state.push(next_head);
+                            return Some(s);
+                        }
+                        _ => {
+                            head = next_head;
+                        }
+                    }
+                }
+            }
+            self.word.pop();
+        }
+        None
+    }
+}
+
+
+//==============================================================================
+
 
 fn main() {
     use std::time::Instant;
@@ -275,8 +391,8 @@ fn main() {
     let simple_board: SimpleBoggleBoard;
     let radix_board: RadixBoggleBoard;
     {
+        //let f = File::open("boards/4x4.txt");
         let f = File::open("boards/256x256.txt");
-        //let f = File::open("boards/1024x1024.txt");
 
         match f {
             Ok(mut file) => {
@@ -304,8 +420,13 @@ fn main() {
     let _ = writeln!(&mut std::io::stderr(), "Paralell Solve (Simple): {:?}", start.elapsed());*/
 
     let start = Instant::now();
-    solve_radix(&trie, &radix_board);
+
+    //solve_radix(&trie, &radix_board);
+    for word in DictBasedIterator::new(&trie, &radix_board) {
+        println!("{}", word);
+    }
     let _ = writeln!(&mut std::io::stderr(), "Sequential Solve (Radix): {:?}", start.elapsed());
+
 
     /*let start = Instant::now();
     par_solve_radix(&trie, &radix_board);
